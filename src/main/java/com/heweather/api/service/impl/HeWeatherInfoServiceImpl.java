@@ -49,30 +49,54 @@ public class HeWeatherInfoServiceImpl implements HeWeatherInfoService {
         }
         HashMap<String, String> params = new HashMap<>();
         if (location != null && !location.equals("")) {
-            URL = URL + "location" + location;
+            URL = URL + "location=" + location;
             params.put("location", location);
         } else {
             heWeatherResponse.setStatus("400");
             return heWeatherResponse;
         }
         if (key != null && !key.equals("")) {
-            URL = URL + "&username" + key;
+            URL = URL + "&username=" + key;
             params.put("username", key);
         } else {
             heWeatherResponse.setStatus("400");
             return heWeatherResponse;
         }
         String t = String.valueOf(System.currentTimeMillis() / 1000);
-        URL = URL + "&t" + t;
+        URL = URL + "&t=" + t;
         params.put("t", t);
         String secret = sign;
+        String json;
         try {
             String signature = SignUtils.getSignature(params, secret);
-            URL = URL + "&sign" + signature;
+            URL = URL + "&sign=" + signature;
             HttpClient httpClient = new DefaultHttpClient();
             HttpGet httpGet = new HttpGet(URL);
             HttpResponse httpResponse = httpClient.execute(httpGet);
-            String json = httpResponse.getEntity().toString();
+            //判断是否是gzip格式
+            //is gzip
+            Header[] headers = httpResponse.getHeaders("Content-Encoding");
+            boolean isGzip = false;
+            for (Header header : headers) {
+                String value = header.getValue();
+                if (value.equals("gzip")) {
+                    isGzip = true;
+                }
+            }
+            if (isGzip){
+                InputStream is = httpResponse.getEntity().getContent();
+                GZIPInputStream gzipIn = new GZIPInputStream(is);
+                BufferedReader br =new BufferedReader(new InputStreamReader(gzipIn));
+                String line =null;
+                StringBuffer sb =new StringBuffer();
+                while((line = br.readLine())!=null){
+                    sb.append(line);
+                }
+                json = sb.toString();
+            }
+            else {
+                json = httpResponse.getEntity().toString();
+            }
             JSONObject response = (JSONObject) JSONObject.parse(json);
             if (response.get("code").equals("200")) {
                 heWeatherResponse.setStatus("200");
